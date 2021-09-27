@@ -282,9 +282,10 @@ bool AlpsT4USBEventDriver::init(OSDictionary *properties) {
 
 const char* AlpsT4USBEventDriver::getProductName() {
     
-    OSString* name = getProduct();
-    
-    return name->getCStringNoCopy();
+    //OSString* name = getProduct();
+    //return name->getCStringNoCopy();
+    //return static string as the code above caused kernel panic
+    return "ALPS";
 }
 
 bool AlpsT4USBEventDriver::didTerminate(IOService* provider, IOOptionBits options, bool* defer) {
@@ -586,10 +587,8 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
     input[7] = check_sum;
     
     
-    
-    OSData* input_updated = OSData::withBytes(input, U1_FEATURE_REPORT_LEN);
-    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, U1_FEATURE_REPORT_LEN), input_updated->getLength(), kIODirectionInOut);
-    
+    OSData* input_updated = OSData::withBytes(input+1, U1_FEATURE_REPORT_LEN-1);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, U1_FEATURE_REPORT_LEN-1), input_updated->getLength(), kIODirectionInOut);
     input_updated->release();
     
     ret = hid_interface->setReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
@@ -634,8 +633,8 @@ IOReturn AlpsT4USBEventDriver::t4_read_write_register(UInt32 address, UInt8 *rea
     input[10] = (UInt8)(check_sum >> 8);
     input[11] = 0;
     
-    OSData* input_updated = OSData::withBytes(input, T4_FEATURE_REPORT_LEN);
-    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, T4_FEATURE_REPORT_LEN), input_updated->getLength(), kIODirectionInOut);
+    OSData* input_updated = OSData::withBytes(input+1, T4_FEATURE_REPORT_LEN-1);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, T4_FEATURE_REPORT_LEN-1), input_updated->getLength(), kIODirectionInOut);
     
     input_updated->release();
     
