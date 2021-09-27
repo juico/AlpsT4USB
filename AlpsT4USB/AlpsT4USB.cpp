@@ -443,9 +443,9 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
             transducer->isPhysicalButtonDown = false;
         }
         
-        x = 0;
-        y = 0;
-        z = 0;
+        //x = 0;
+        //y = 0;
+        //z = 0;
     }
     
     inputMessage.contact_count = contactCount;
