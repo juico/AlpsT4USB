@@ -388,7 +388,8 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
     clock_get_uptime(&now_abs);
     uint64_t now_ns;
     absolutetime_to_nanoseconds(now_abs, &now_ns);
-    
+    IOLog("%s::%s Receiving report with id:%u\n", getName(), name,report_id);
+
     // Ignore touchpad interaction(s) shortly after typing
     if (now_ns - key_time < max_after_typing)
         return;
@@ -413,18 +414,19 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
         
         transducer->type = VoodooInputTransducerType::FINGER;
         transducer->fingerType = (MT2FingerType) (kMT2FingerTypeIndexFinger + (i % 4));
-        transducer->secondaryId = 3;
+        transducer->secondaryId = i;
         
         UInt8 *contact = &data[i * 5];
         x = get_unaligned_le16(contact + 3);
         y = get_unaligned_le16(contact + 5);
         z = contact[7] & 0x7F;
-        
+        IOLog("%s::%s Touched nr(%u) at: %u,%u,%u \n", getName(), name,i,x,y,z);
         bool contactValid = z;
         transducer->isValid = contactValid;
         transducer->timestamp = timestamp;
         transducer->supportsPressure = false;
-        
+        //transducer->supportsPressure=true;
+
         if (contactValid) {
             transducer->isTransducerActive = true;
             transducer->secondaryId = i;
@@ -434,7 +436,10 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
             transducer->currentCoordinates.y = y;
             
             transducer->isPhysicalButtonDown = data[1] & 0x1;
-           
+            //Test to see if the presure works
+            //transducer->currentCoordinates.pressure = z;
+            //transducer->currentCoordinates.width=10;
+
             contactCount += 1;
         } else {
             transducer->isTransducerActive =  false;
@@ -484,7 +489,7 @@ bool AlpsT4USBEventDriver::u1_device_init() {
         IOLog("%s::%s Could not read device mode\n", getName(), name);
         goto exit;
     }
-    
+    //If dev_ctrl return 0 then this could lead to inproper init of the absolute mode
     dev_ctrl &= ~U1_DISABLE_DEV;
     dev_ctrl |= U1_TP_ABS_MODE;
     
@@ -499,11 +504,21 @@ bool AlpsT4USBEventDriver::u1_device_init() {
         IOLog("%s::%s Could not read sen_line_num_x\n", getName(), name);
         goto exit;
     }
+    if(sen_line_num_x==0)
+    {
+        IOLog("%s::%s sen_line_num_x return 0 setting it to 128\n", getName(), name);
+        sen_line_num_x=128;
+    }
     
     u1_read_write_register(ADDRESS_U1_NUM_SENS_Y, &sen_line_num_y, 0, true);
     if (ret != kIOReturnSuccess) {
         IOLog("%s::%s Could not read sen_line_num_y\n", getName(), name);
         goto exit;
+    }
+    if(sen_line_num_y==0)
+    {
+        IOLog("%s::%s sen_line_num_y return 0 setting it to 128\n", getName(), name);
+        sen_line_num_y=128;
     }
     
     u1_read_write_register(ADDRESS_U1_PITCH_SENS_X, &pitch_x, 0, true);
@@ -511,17 +526,31 @@ bool AlpsT4USBEventDriver::u1_device_init() {
         IOLog("%s::%s Could not read pitch_sens_x\n", getName(), name);
         goto exit;
     }
+    if(pitch_x==0)
+    {
+        IOLog("%s::%s Pitch_x return 0 setting it to 10\n", getName(), name);
+        pitch_x=10;
+    }
     
     u1_read_write_register(ADDRESS_U1_PITCH_SENS_Y, &pitch_y, 0, true);
     if (ret != kIOReturnSuccess) {
         IOLog("%s::%s Could not read pitch_sens_y\n", getName(), name);
         goto exit;
     }
+    if(pitch_y==0)
+    {
+        IOLog("%s::%s Pitch_y return 0 setting it to 10\n", getName(), name);
+        pitch_y=10;
+    }
     
     u1_read_write_register(ADDRESS_U1_RESO_DWN_ABS, &resolution, 0, true);
     if (ret != kIOReturnSuccess) {
         IOLog("%s::%s Could not read absolute mode resolution\n", getName(), name);
         goto exit;
+    }
+    if(resolution==0){
+        IOLog("%s::%s Resolution return 0 setting it to 10\n", getName(), name);
+        resolution=10;
     }
 
     pri_data.x_active_len_mm = (pitch_x * (sen_line_num_x - 1)) / 10;
@@ -590,7 +619,8 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
     OSData* input_updated = OSData::withBytes(input+1, U1_FEATURE_REPORT_LEN-1);
     IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, U1_FEATURE_REPORT_LEN-1), input_updated->getLength(), kIODirectionInOut);
     input_updated->release();
-    
+    IOLog("%s::%s SetReport(%x,%x,%x,%x,%x,%x,%x,%x)\n", getName(), name,input[0],input[1],input[2],input[3],input[4],input[5],input[6],input[7]);
+
     ret = hid_interface->setReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
     
     if (read_flag) {
@@ -598,9 +628,10 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
         ret = hid_interface->getReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
         
         report->readBytes(0, &readbuf, U1_FEATURE_REPORT_LEN);
+        IOLog("%s::%s GetReport result:(%x,%x,%x,%x,%x,%x,%x,%x)\n", getName(), name,readbuf[0],readbuf[1],readbuf[2],readbuf[3],readbuf[4],readbuf[5],readbuf[6],readbuf[7]);
         
         *read_val = readbuf[6];
-        
+        IOLog("%s::%s Value read: %u on adress (%x)\n", getName(), name,readbuf[6],address);
     }
     
     report->release();
