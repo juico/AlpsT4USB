@@ -597,27 +597,27 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
     IOReturn ret = kIOReturnSuccess;
     
     
-    input[0] = U1_FEATURE_REPORT_ID;
+    //input[0] = U1_FEATURE_REPORT_ID;
     if (read_flag) {
-        input[1] = U1_CMD_REGISTER_READ;
-        input[6] = 0x00;
+        input[0] = U1_CMD_REGISTER_READ;
+        input[5] = 0x00;
     } else {
-        input[1] = U1_CMD_REGISTER_WRITE;
-        input[6] = write_val;
+        input[0] = U1_CMD_REGISTER_WRITE;
+        input[5] = write_val;
     }
     
-    put_unaligned_le32(address, input + 2);
+    put_unaligned_le32(address, input + 1);
     
     /* Calculate the checksum */
-    check_sum = U1_FEATURE_REPORT_LEN_ALL;
+    check_sum = U1_FEATURE_REPORT_LEN_ALL+U1_FEATURE_REPORT_ID;
     for (int i = 0; i < U1_FEATURE_REPORT_LEN - 1; i++)
         check_sum += input[i];
     
-    input[7] = check_sum;
+    input[6] = check_sum;
     
     
-    OSData* input_updated = OSData::withBytes(input+1, U1_FEATURE_REPORT_LEN-1);
-    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, U1_FEATURE_REPORT_LEN-1), input_updated->getLength(), kIODirectionInOut);
+    OSData* input_updated = OSData::withBytes(input, U1_FEATURE_REPORT_LEN);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, U1_FEATURE_REPORT_LEN), input_updated->getLength(), kIODirectionInOut);
     input_updated->release();
     IOLog("%s::%s SetReport(%x,%x,%x,%x,%x,%x,%x,%x)\n", getName(), name,input[0],input[1],input[2],input[3],input[4],input[5],input[6],input[7]);
 
@@ -646,26 +646,26 @@ IOReturn AlpsT4USBEventDriver::t4_read_write_register(UInt32 address, UInt8 *rea
     UInt8 readbuf[T4_FEATURE_REPORT_LEN] = {};
     IOReturn ret = kIOReturnSuccess;
     
-    input[0] = T4_FEATURE_REPORT_ID;
+    //input[0] = T4_FEATURE_REPORT_ID;
     if (read_flag) {
-        input[1] = T4_CMD_REGISTER_READ;
-        input[8] = 0x00;
+        input[0] = T4_CMD_REGISTER_READ;
+        input[7] = 0x00;
     } else {
-        input[1] = T4_CMD_REGISTER_WRITE;
-        input[8] = write_val;
+        input[0] = T4_CMD_REGISTER_WRITE;
+        input[7] = write_val;
     }
-    put_unaligned_le32(address, input + 2);
-    input[6] = 1;
-    input[7] = 0;
+    put_unaligned_le32(address, input + 1);
+    input[5] = 1;
+    input[6] = 0;
     
     /* Calculate the checksum */
-    check_sum = t4_calc_check_sum(input, 1, 8);
-    input[9] = (UInt8)check_sum;
-    input[10] = (UInt8)(check_sum >> 8);
-    input[11] = 0;
+    check_sum = t4_calc_check_sum(input, 0, 8);
+    input[8] = (UInt8)check_sum;
+    input[9] = (UInt8)(check_sum >> 8);
+    input[10] = 0;
     
-    OSData* input_updated = OSData::withBytes(input+1, T4_FEATURE_REPORT_LEN-1);
-    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, T4_FEATURE_REPORT_LEN-1), input_updated->getLength(), kIODirectionInOut);
+    OSData* input_updated = OSData::withBytes(input, T4_FEATURE_REPORT_LEN);
+    IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, T4_FEATURE_REPORT_LEN), input_updated->getLength(), kIODirectionInOut);
     
     input_updated->release();
     
@@ -676,9 +676,9 @@ IOReturn AlpsT4USBEventDriver::t4_read_write_register(UInt32 address, UInt8 *rea
         
  
         ret = hid_interface->getReport(report, kIOHIDReportTypeFeature, T4_FEATURE_REPORT_ID);
-        
+        //dump_report(report);
         report->readBytes(0, &readbuf, T4_FEATURE_REPORT_LEN);
-
+        IOLog("Packet read:(%x:%x:%x:%x:%x:%x:%x:%x:%x:%x:%x:%x:%x:%x)", readbuf[0],readbuf[1],readbuf[2],readbuf[3],readbuf[4],readbuf[5],readbuf[6],readbuf[7],readbuf[8],readbuf[9],readbuf[10],readbuf[11],readbuf[12],readbuf[13]);
         if (*(UInt32 *)&readbuf[6] != address) {
             IOLog("read register address error (%x,%x)\n", *(UInt32 *)&readbuf[6], address);
             goto exit_readbuf;
@@ -706,7 +706,25 @@ exit:
     report->release();
     return ret;
 }
-
+void AlpsT4USBEventDriver::dump_report(IOMemoryDescriptor *report)
+{
+    UInt8 length = report->getLength();
+    UInt8* buffer = (UInt8*) IOMalloc(length);
+    report->readBytes(0,buffer,report->getLength());
+    IOLog("%s::%s Report length:%u\n",getName(), name,length);
+    IOLog("%s::%s Report data: %.*x \n",getName(), name,length,buffer);
+    /*
+    int i = 0;
+    while(i<length){
+        IOLog("%s::%s Report data:",getName(), name);
+        for(int j = 0;j < 8 && i<length;j++){
+            IOLog(" %x ", buffer[i]);
+            i++;
+        }
+        IOLog("\n");
+    }*/
+    
+}
 
 void AlpsT4USBEventDriver::put_unaligned_le32(uint32_t val, void *p)
 {
