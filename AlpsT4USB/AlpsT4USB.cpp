@@ -318,7 +318,7 @@ void AlpsT4USBEventDriver::t4_raw_event(AbsoluteTime timestamp, IOMemoryDescript
     
     t4_input_report reportData;
     
-    unsigned int x, y;
+    unsigned int x, y,z,zx,zy;
     
     report->readBytes(0, &reportData, T4_INPUT_REPORT_LEN);
     
@@ -333,6 +333,10 @@ void AlpsT4USBEventDriver::t4_raw_event(AbsoluteTime timestamp, IOMemoryDescript
         x = reportData.contact[i].x_hi << 8 | reportData.contact[i].x_lo;
         y = reportData.contact[i].y_hi << 8 | reportData.contact[i].y_lo;
         y = 3060 - y + 255;
+        z= reportData.contact[i].palm;
+        zx=reportData.zx[i];
+        zy=reportData.zy[i];
+        IOLog("Alps Touched %u at (%u,%u,%u,%u,%u)\n",i,x,y,z,zx,zy);
         bool contactValid= (reportData.contact[i].palm < 0x80 &&
              reportData.contact[i].palm > 0) * 62;
         
@@ -592,28 +596,28 @@ exit:
 IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *read_val, UInt8 write_val, bool read_flag) {
     
     UInt8 check_sum;
-    UInt8 input[U1_FEATURE_REPORT_LEN] = {};
-    UInt8 readbuf[U1_FEATURE_REPORT_LEN] = {};
+    UInt8 input[U1_FEATURE_REPORT_LEN] = {0};
+    UInt8 readbuf[U1_FEATURE_REPORT_LEN] = {0};
     IOReturn ret = kIOReturnSuccess;
     
     
-    //input[0] = U1_FEATURE_REPORT_ID;
+    input[0] = U1_FEATURE_REPORT_ID;
     if (read_flag) {
-        input[0] = U1_CMD_REGISTER_READ;
-        input[5] = 0x00;
+        input[1] = U1_CMD_REGISTER_READ;
+        input[6] = 0x00;
     } else {
-        input[0] = U1_CMD_REGISTER_WRITE;
-        input[5] = write_val;
+        input[1] = U1_CMD_REGISTER_WRITE;
+        input[6] = write_val;
     }
     
-    put_unaligned_le32(address, input + 1);
+    put_unaligned_le32(address, input + 2);
     
     /* Calculate the checksum */
-    check_sum = U1_FEATURE_REPORT_LEN_ALL+U1_FEATURE_REPORT_ID;
+    check_sum = U1_FEATURE_REPORT_LEN_ALL;
     for (int i = 0; i < U1_FEATURE_REPORT_LEN - 1; i++)
         check_sum += input[i];
     
-    input[6] = check_sum;
+    input[7] = check_sum;
     
     
     OSData* input_updated = OSData::withBytes(input, U1_FEATURE_REPORT_LEN);
@@ -638,7 +642,6 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
     
     return ret;
 }
-
 IOReturn AlpsT4USBEventDriver::t4_read_write_register(UInt32 address, UInt8 *read_val, UInt8 write_val, bool read_flag) {
     
     UInt16 check_sum;
@@ -646,23 +649,23 @@ IOReturn AlpsT4USBEventDriver::t4_read_write_register(UInt32 address, UInt8 *rea
     UInt8 readbuf[T4_FEATURE_REPORT_LEN] = {};
     IOReturn ret = kIOReturnSuccess;
     
-    //input[0] = T4_FEATURE_REPORT_ID;
+    input[0] = T4_FEATURE_REPORT_ID;
     if (read_flag) {
-        input[0] = T4_CMD_REGISTER_READ;
-        input[7] = 0x00;
+        input[1] = T4_CMD_REGISTER_READ;
+        input[8] = 0x00;
     } else {
-        input[0] = T4_CMD_REGISTER_WRITE;
-        input[7] = write_val;
+        input[1] = T4_CMD_REGISTER_WRITE;
+        input[8] = write_val;
     }
-    put_unaligned_le32(address, input + 1);
-    input[5] = 1;
-    input[6] = 0;
+    put_unaligned_le32(address, input + 2);
+    input[6] = 1;
+    input[7] = 0;
     
     /* Calculate the checksum */
-    check_sum = t4_calc_check_sum(input, 0, 8);
-    input[8] = (UInt8)check_sum;
-    input[9] = (UInt8)(check_sum >> 8);
-    input[10] = 0;
+    check_sum = t4_calc_check_sum(input, 1, 8);
+    input[9] = (UInt8)check_sum;
+    input[10] = (UInt8)(check_sum >> 8);
+    input[11] = 0;
     
     OSData* input_updated = OSData::withBytes(input, T4_FEATURE_REPORT_LEN);
     IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, T4_FEATURE_REPORT_LEN), input_updated->getLength(), kIODirectionInOut);
