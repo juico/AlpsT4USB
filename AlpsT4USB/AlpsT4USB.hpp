@@ -128,6 +128,21 @@ struct __attribute__((__packed__)) t4_input_report {
     UInt8  kilroy;
     UInt16 timeStamp;
 };
+struct __attribute__((__packed__)) u1_contact_data {
+    UInt8    x_lo;
+    UInt8    x_hi;
+    UInt8    y_lo;
+    UInt8    y_hi;
+    UInt8       z;
+};
+
+
+struct __attribute__((__packed__)) u1_input_report {
+    UInt8  reportID;
+    UInt8  buttons;
+    UInt8  numContacts;
+    struct u1_contact_data contact[5];
+};
 
 class AlpsT4USBEventDriver : public IOHIDEventService {
     OSDeclareDefaultStructors(AlpsT4USBEventDriver);
@@ -170,6 +185,7 @@ protected:
 private:
     void t4_raw_event(AbsoluteTime timestamp, IOMemoryDescriptor *report, IOHIDReportType report_type, UInt32 report_id);
     void u1_raw_event(AbsoluteTime timestamp, IOMemoryDescriptor *report, IOHIDReportType report_type, UInt32 report_id);
+    void dump_report(IOMemoryDescriptor *report);
     bool ready;
     uint64_t max_after_typing;
     uint64_t key_time;
@@ -187,6 +203,7 @@ private:
     bool u1_device_init();
     
     IOReturn u1_read_write_register(UInt32 address, UInt8 *read_val, UInt8 write_val, bool read_flag);
+
     IOReturn t4_read_write_register(UInt32 address, UInt8 *read_val, UInt8 write_val, bool read_flag);
     
 };

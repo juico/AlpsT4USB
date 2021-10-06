@@ -406,11 +406,11 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
     
     if (report_id != U1_ABSOLUTE_REPORT_ID)
         return;
-
-    unsigned int x, y, z;
+    u1_input_report reportData;
     
-    UInt8 data[sizeof(report)] = {};
-    report->readBytes(0, &data, sizeof(report));
+    unsigned int x, y,z;
+    
+    report->readBytes(0, &reportData, 28);
     
     int contactCount = 0;
     for (int i = 0; i < MAX_TOUCHES; i++) {
@@ -420,10 +420,10 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
         transducer->fingerType = (MT2FingerType) (kMT2FingerTypeIndexFinger + (i % 4));
         transducer->secondaryId = i;
         
-        UInt8 *contact = &data[i * 5];
-        x = get_unaligned_le16(contact + 3);
-        y = get_unaligned_le16(contact + 5);
-        z = contact[7] & 0x7F;
+        //UInt8 *contact = &data[i * 5];
+        x = reportData.contact[i].x_hi << 8 | reportData.contact[i].x_lo;
+        y = reportData.contact[i].y_hi << 8 | reportData.contact[i].y_lo;
+        z = reportData.contact[i].z & 0x7F;
         IOLog("%s::%s Touched nr(%u) at: %u,%u,%u \n", getName(), name,i,x,y,z);
         bool contactValid = z;
         transducer->isValid = contactValid;
@@ -439,7 +439,7 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
             transducer->currentCoordinates.x = x;
             transducer->currentCoordinates.y = y;
             
-            transducer->isPhysicalButtonDown = data[1] & 0x1;
+            transducer->isPhysicalButtonDown = false;
             //Test to see if the presure works
             //transducer->currentCoordinates.pressure = z;
             //transducer->currentCoordinates.width=10;
@@ -459,7 +459,7 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
     
     inputMessage.contact_count = contactCount;
     inputMessage.timestamp = timestamp;
-    
+    /*
     if (contactCount >= 4 || inputMessage.transducers->isPhysicalButtonDown) {
         // simple thumb detection: to find the lowest finger touch in the vertical direction.
         UInt32 y_max = 0;
@@ -473,7 +473,7 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
         }
         inputMessage.transducers[thumb_index].fingerType = kMT2FingerTypeThumb;
     }
-
+*/
        
     super::messageClient(kIOMessageVoodooInputMessage, voodooInputInstance, &inputMessage, sizeof(VoodooInputEvent));
  }
@@ -511,7 +511,7 @@ bool AlpsT4USBEventDriver::u1_device_init() {
     if(sen_line_num_x==0)
     {
         IOLog("%s::%s sen_line_num_x return 0 setting it to 128\n", getName(), name);
-        sen_line_num_x=128;
+        sen_line_num_x=0x18;
     }
     
     u1_read_write_register(ADDRESS_U1_NUM_SENS_Y, &sen_line_num_y, 0, true);
@@ -522,7 +522,7 @@ bool AlpsT4USBEventDriver::u1_device_init() {
     if(sen_line_num_y==0)
     {
         IOLog("%s::%s sen_line_num_y return 0 setting it to 128\n", getName(), name);
-        sen_line_num_y=128;
+        sen_line_num_y=0x0d;
     }
     
     u1_read_write_register(ADDRESS_U1_PITCH_SENS_X, &pitch_x, 0, true);
@@ -533,7 +533,7 @@ bool AlpsT4USBEventDriver::u1_device_init() {
     if(pitch_x==0)
     {
         IOLog("%s::%s Pitch_x return 0 setting it to 10\n", getName(), name);
-        pitch_x=10;
+        pitch_x=0x29;
     }
     
     u1_read_write_register(ADDRESS_U1_PITCH_SENS_Y, &pitch_y, 0, true);
@@ -544,7 +544,7 @@ bool AlpsT4USBEventDriver::u1_device_init() {
     if(pitch_y==0)
     {
         IOLog("%s::%s Pitch_y return 0 setting it to 10\n", getName(), name);
-        pitch_y=10;
+        pitch_y=0x29;
     }
     
     u1_read_write_register(ADDRESS_U1_RESO_DWN_ABS, &resolution, 0, true);
@@ -554,7 +554,7 @@ bool AlpsT4USBEventDriver::u1_device_init() {
     }
     if(resolution==0){
         IOLog("%s::%s Resolution return 0 setting it to 10\n", getName(), name);
-        resolution=10;
+        resolution=0X20;
     }
 
     pri_data.x_active_len_mm = (pitch_x * (sen_line_num_x - 1)) / 10;
@@ -669,7 +669,8 @@ IOReturn AlpsT4USBEventDriver::t4_read_write_register(UInt32 address, UInt8 *rea
     
     OSData* input_updated = OSData::withBytes(input, T4_FEATURE_REPORT_LEN);
     IOBufferMemoryDescriptor* report = IOBufferMemoryDescriptor::withBytes(input_updated->getBytesNoCopy(0, T4_FEATURE_REPORT_LEN), input_updated->getLength(), kIODirectionInOut);
-    
+    IOLog("%s::%s Packet write(%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x)\n", getName(), name,input[0],input[1],input[2],input[3],input[4],input[5],input[6],input[7],input[8],input[9],input[10],input[11]);
+
     input_updated->release();
     
     hid_interface->setReport(report, kIOHIDReportTypeFeature, T4_FEATURE_REPORT_ID);
