@@ -424,7 +424,7 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
         x = reportData.contact[i].x_hi << 8 | reportData.contact[i].x_lo;
         y = reportData.contact[i].y_hi << 8 | reportData.contact[i].y_lo;
         z = reportData.contact[i].z & 0x7F;
-        IOLog("%s::%s Touched nr(%u) at: %u,%u,%u \n", getName(), name,i,x,y,z);
+        //IOLog("%s::%s Touched nr(%u) at: %u,%u,%u \n", getName(), name,i,x,y,z);
         bool contactValid = z;
         transducer->isValid = contactValid;
         transducer->timestamp = timestamp;
@@ -438,25 +438,40 @@ void AlpsT4USBEventDriver::u1_raw_event(AbsoluteTime timestamp, IOMemoryDescript
             transducer->previousCoordinates = transducer->currentCoordinates;
             transducer->currentCoordinates.x = x;
             transducer->currentCoordinates.y = y;
-            
-            transducer->isPhysicalButtonDown = false;
+            transducer->isPhysicalButtonDown = reportData.buttons;
             //Test to see if the presure works
-            //transducer->currentCoordinates.pressure = z;
-            //transducer->currentCoordinates.width=10;
+            //transducer->currentCoordinates.pressure = 1;
+            //transducer->currentCoordinates.width=z;
 
             contactCount += 1;
         } else {
             transducer->isTransducerActive =  false;
             transducer->secondaryId = i;
             transducer->currentCoordinates = transducer->previousCoordinates;
-            transducer->isPhysicalButtonDown = false;
+            transducer->isPhysicalButtonDown = reportData.buttons;
         }
         
         //x = 0;
         //y = 0;
         //z = 0;
     }
-    
+    if(reportData.buttons){
+        VoodooInputTransducer* transducer = &inputMessage.transducers[0];
+        IOLog("%s::%s Button pressed %x numfinger: %i\n" , getName(),name, reportData.buttons,contactCount);
+        transducer->isValid =true;
+        transducer->isTransducerActive =true;
+        transducer->isPhysicalButtonDown =reportData.buttons;
+        if(reportData.buttons & 0x02)
+        {
+            VoodooInputTransducer* transducer = &inputMessage.transducers[1];
+            IOLog("%s::%s Button pressed %x numfinger: %i\n" , getName(),name, reportData.buttons,contactCount);
+            transducer->isValid =true;
+            transducer->isTransducerActive =true;
+            transducer->isPhysicalButtonDown =reportData.buttons;
+            contactCount++;
+        }
+        contactCount++;
+    }
     inputMessage.contact_count = contactCount;
     inputMessage.timestamp = timestamp;
     /*
@@ -557,8 +572,8 @@ bool AlpsT4USBEventDriver::u1_device_init() {
         resolution=0X20;
     }
 
-    pri_data.x_active_len_mm = (pitch_x * (sen_line_num_x - 1)) / 10;
-    pri_data.y_active_len_mm = (pitch_y * (sen_line_num_y - 1)) / 10;
+    pri_data.x_active_len_mm = (pitch_x * (sen_line_num_x - 1));
+    pri_data.y_active_len_mm = (pitch_y * (sen_line_num_y - 1));
     
     pri_data.x_max = (resolution << 2) * (sen_line_num_x - 1);
     pri_data.x_min = 1;
