@@ -10,6 +10,8 @@ also be installed to /Library/Extensions.~
 
 Should work when injected via Clover or OC, but you do need VoodooI2C / VoodooI2CHID.
 
+The VoodooI2CHID that is supplied in the release has to be used for now until changes are merged with the main branch.
+
 # Experimental
 
 The latest release of this kext works also work for I2C Alps touchpad devices with the following device IDs - 0x1209, 0x120b, 0x120c but it is currently being tested.  Since it only subclasses the Event Service, you will always need to install VoodooI2C / VoodooI2CHID to instantiate the hid device.  If you have an I2C Alps touchpad and try the kext, please report in the VoodooI2C gitter chat whether or not it works for you.
