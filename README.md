@@ -2,7 +2,7 @@
 
 This is a satellite kext which uses VoodooI2C's multitouch engine to bring native multitouch to the Alps
 T4 USB touchpad found on the Elite X2 1012 G1 and G2 devices.
-
+Now also supports I2C version of the T4 as found on HP ZBook G3 studio and U1 version found on Dell Latitude 7280, 5480, 5580 laptops.
 # Installation Considerations
 
 ~Currently this kext only works when installed to /Library/Extensions.  VoodooI2C and VoodooI2CHID must 
