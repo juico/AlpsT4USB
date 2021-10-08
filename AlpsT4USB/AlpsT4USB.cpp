@@ -661,16 +661,12 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
     ret = hid_interface->setReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
     
     if (read_flag) {
-        //Increased the getreport size might need a more elegant fix
-        IOBufferMemoryDescriptor* getReport = IOBufferMemoryDescriptor::withCapacity(U1_FEATURE_REPORT_LEN_ALL+2, kIODirectionInOut);
-        ret = hid_interface->getReport(getReport, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
-        
-        getReport->readBytes(0, &readbuf, U1_FEATURE_REPORT_LEN+2);
+        ret = hid_interface->getReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
+        report->readBytes(0, &readbuf, U1_FEATURE_REPORT_LEN);
         IOLog("%s::%s GetReport result:(%x,%x,%x,%x,%x,%x,%x,%x)\n", getName(), name,readbuf[0],readbuf[1],readbuf[2],readbuf[3],readbuf[4],readbuf[5],readbuf[6],readbuf[7]);
         
         *read_val = readbuf[6];
         IOLog("%s::%s Value read: %u on adress (%x)\n", getName(), name,readbuf[6],address);
-        getReport->release();
     }
     
     report->release();
