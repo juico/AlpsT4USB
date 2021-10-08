@@ -55,6 +55,7 @@ for the alps t4 touchpad (https://github.com/torvalds/linux/blob/master/drivers/
 #define T4_PRM_FEED_CONFIG_1        (T4_ADDRESS_BASE + 0x0004)
 #define T4_PRM_FEED_CONFIG_4        (T4_ADDRESS_BASE + 0x001A)
 #define T4_PRM_ID_CONFIG_3          (T4_ADDRESS_BASE + 0x00B0)
+#define T4_GPIO_PINS                (T4_ADDRESS_BASE + 0x000C)
 
 #define T4_FEEDCFG4_ADVANCED_ABS_ENABLE            0x01
 #define T4_I2C_ABS                  0x78
@@ -189,6 +190,8 @@ private:
     bool ready;
     uint64_t max_after_typing;
     uint64_t key_time;
+    UInt8 touch_time;
+    bool touch_enabled;
     bool awake;
     dev_num dev_type;
     IOWorkLoop* work_loop;

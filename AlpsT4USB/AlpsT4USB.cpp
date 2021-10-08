@@ -68,7 +68,8 @@ void AlpsT4USBEventDriver::t4_device_init() {
     
     setProperty(VOODOO_INPUT_PHYSICAL_MAX_X_KEY, 10240, 32);
     setProperty(VOODOO_INPUT_PHYSICAL_MAX_Y_KEY, 6140, 32);
-    
+    touch_time=0;
+    touch_enabled=true;
     ready = true;
     return;
     
@@ -303,7 +304,7 @@ void AlpsT4USBEventDriver::t4_raw_event(AbsoluteTime timestamp, IOMemoryDescript
     uint64_t now_ns;
     absolutetime_to_nanoseconds(now_abs, &now_ns);
     
-    // Ignore touchpad interaction(s) shortly after typing
+    // Ignore touchpad interaction(s) shortly after typing(now checking for palm aswell)
     if (now_ns - key_time < max_after_typing)
         return;
     
@@ -318,9 +319,25 @@ void AlpsT4USBEventDriver::t4_raw_event(AbsoluteTime timestamp, IOMemoryDescript
     
     t4_input_report reportData;
     
-    unsigned int x, y,z,zx,zy;
+    unsigned int x, y,z;
     
     report->readBytes(0, &reportData, T4_INPUT_REPORT_LEN);
+    
+    /*
+    //disable touchpad when tapped left top corner
+    if(reportData.track[0]<touch_time&&touch_time<0x40 && reportData.contact[0].x_hi<2 && reportData.contact[0].y_hi >10){
+        VoodooInputTransducer* transducer = &inputMessage.transducers[0];
+        if(transducer->previousCoordinates.x >> 8 < 2 & transducer->previousCoordinates.y << 8 > 10)
+        t4_read_write_register(T4_GPIO_PINS, NULL, touch_enabled, false);
+        touch_enabled=!touch_enabled;
+    }
+    if(reportData.track[0]!=0xff){
+    touch_time=reportData.track[0];
+    }
+    if(!touch_enabled){
+        return;
+    }
+    */
     
     int contactCount = 0;
     for (int i = 0; i < MAX_TOUCHES; i++) {
@@ -334,16 +351,17 @@ void AlpsT4USBEventDriver::t4_raw_event(AbsoluteTime timestamp, IOMemoryDescript
         y = reportData.contact[i].y_hi << 8 | reportData.contact[i].y_lo;
         y = 3060 - y + 255;
         z= reportData.contact[i].palm;
-        zx=reportData.zx[i];
-        zy=reportData.zy[i];
-        IOLog("Alps Touched %u at (%u,%u,%u,%u,%u)\n",i,x,y,z,zx,zy);
+        //palm detect
+        if(reportData.contact[i].palm & 0x80){
+            return;
+        }
+        //IOLog("Alps Touched %u at (%u,%u,%u,%u,%u)\n",i,x,y,z);
         bool contactValid= (reportData.contact[i].palm < 0x80 &&
              reportData.contact[i].palm > 0) * 62;
         
         transducer->isValid = contactValid;
         transducer->timestamp = timestamp;
         transducer->supportsPressure = false;
-        
         if (contactValid) {
             transducer->isTransducerActive = true;
             transducer->secondaryId = i;
@@ -643,14 +661,16 @@ IOReturn AlpsT4USBEventDriver::u1_read_write_register(UInt32 address, UInt8 *rea
     ret = hid_interface->setReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
     
     if (read_flag) {
+        //Increased the getreport size might need a more elegant fix
+        IOBufferMemoryDescriptor* getReport = IOBufferMemoryDescriptor::withCapacity(U1_FEATURE_REPORT_LEN_ALL+2, kIODirectionInOut);
+        ret = hid_interface->getReport(getReport, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
         
-        ret = hid_interface->getReport(report, kIOHIDReportTypeFeature, U1_FEATURE_REPORT_ID);
-        
-        report->readBytes(0, &readbuf, U1_FEATURE_REPORT_LEN);
+        getReport->readBytes(0, &readbuf, U1_FEATURE_REPORT_LEN+2);
         IOLog("%s::%s GetReport result:(%x,%x,%x,%x,%x,%x,%x,%x)\n", getName(), name,readbuf[0],readbuf[1],readbuf[2],readbuf[3],readbuf[4],readbuf[5],readbuf[6],readbuf[7]);
         
         *read_val = readbuf[6];
         IOLog("%s::%s Value read: %u on adress (%x)\n", getName(), name,readbuf[6],address);
+        getReport->release();
     }
     
     report->release();

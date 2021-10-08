@@ -70,9 +70,7 @@ function enable_report_listener(){
     device.addEventListener("inputreport", event => {
         const { data, device, reportId } = event;
         outputDiv.innerHTML = "ReportId: " +reportId + "<br/>";
-        for(let i =0;i<data.byteLength;i++){
-            outputDiv.innerHTML+=data.getInt8(i)+":";
-        }
+        outputDiv.innerHTML += print_hex(new Uint8Array(data.buffer));
     });
 }
 function read_write_register(address, write_val,read_flag){
