@@ -1,4 +1,8 @@
-# AlpsT4USB
+# AlpsT4USB -> [AlpsHID](https://github.com/blankmac/AlpsHID)
+
+Project has been moved and renamed to better fit the current supported hardware. No further work will be done on this fork and for the latest version of the driver visit the repo [AlpsHID](https://github.com/blankmac/AlpsHID).
+
+# AlpsT4USB 
 
 This is a satellite kext which uses VoodooI2C's multitouch engine to bring native multitouch to the Alps
 T4 USB touchpad found on the Elite X2 1012 G1 and G2 devices.
